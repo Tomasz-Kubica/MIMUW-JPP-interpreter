@@ -1,0 +1,14 @@
+int () makeCounter () {
+  int x = 0;
+  int counter () {
+    x = x + 1;
+    return x;
+  }
+  return counter;
+}
+
+int () counter = makeCounter();
+
+print counter(); // 1
+print counter(); // 2
+print counter(); // 3

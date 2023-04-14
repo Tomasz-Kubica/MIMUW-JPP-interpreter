@@ -1,0 +1,23 @@
+
+int (int) comp(int (int) f, int (int) g) {
+  int fg(int x) {
+    return f(g(x));
+  }
+  return fg;
+}
+
+int f(int x) {
+  return x + 1;
+}
+
+int g(int x) {
+  return g * 2;
+}
+
+int (int) fg = comp(f, g);
+int (int) gf = comp(g, f);
+
+int x = 1;
+
+print fg(x); // 3
+print gf(x); // 4

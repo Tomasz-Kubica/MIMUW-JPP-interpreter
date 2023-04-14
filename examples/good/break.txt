@@ -1,0 +1,12 @@
+int count = 0;
+
+for (x = 0 to 100) {
+  if (x > 42) {
+    break;
+  }
+  if (x % 2 == 0) {
+    count = count + 1;
+  }
+}
+
+print count;

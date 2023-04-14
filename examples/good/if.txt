@@ -1,0 +1,13 @@
+int x = 42;
+
+string s = "";
+
+if (x == 42) {
+  s = "42!!";
+} else {
+  s = "not 42!!";
+}
+
+if (true) {
+  print s;
+}

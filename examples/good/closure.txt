@@ -1,0 +1,36 @@
+int f() {return 0;}
+
+int () z1 = f;
+int () z2 = f;
+
+// Globalna zmienna x, nie będzie przechwycona bo zostanie przesłoniona
+int x = 1984;
+
+{
+  // To x przysłania globalne x
+  // i będzie przechwycone przez domknięcie zamiast niego
+  int x = 1;
+  int y = 2;
+
+  int c1() {
+    // x i y zostają przechwycone przez referencję
+    x = x + 1;
+    return x + y;
+  }
+  z1 = c1;
+
+  int c2() {return x;}
+  z2 = c2;
+}
+
+// tu widoczny jest stary, globalny x, ale domknięcia mają dostęp
+// do niewidocznego lokalnego x
+print x; // 1984
+
+// Oba domknięcia przechwyciły tą samą zmienną
+print z1(); // (1 + 1) + 2 = 4
+print z2(); // 2
+
+x = 0;
+
+print closure(); // 3

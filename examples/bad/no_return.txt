@@ -1,0 +1,6 @@
+int f(int &x) {
+  x = x + 1;
+}
+
+int x = 1;
+int z = f(x); // Błąd podczas wykonania funkcja nic nie zwróciła

@@ -1,0 +1,13 @@
+int swap(int &x, int &y) {
+  int z = x;
+  x = y;
+  y = z;
+  return 0;
+}
+
+int a = 1;
+int b = 2;
+swap(a, b);
+
+print a; // 2
+print b; // 1

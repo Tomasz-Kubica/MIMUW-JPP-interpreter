@@ -1,0 +1,4 @@
+for (i = 1 to 7) {
+  print i;
+  i = i + 1; // i jest const nie można przypisać
+}

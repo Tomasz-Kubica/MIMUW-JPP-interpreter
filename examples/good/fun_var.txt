@@ -1,0 +1,16 @@
+int f(int x) { // powstaje stała `const int (int) f` równa zdefiniowanej funkcji.
+  return x + 1;
+}
+
+int g(int x) {
+  return x * 2;
+}
+
+int (int) z = f; // Zmienna z zostaje podczas deklaracji zainicjowana funkcją f.
+
+print z(0); // Wywołuje f
+
+z = g;
+
+print z(0); // Wywołuje g
+

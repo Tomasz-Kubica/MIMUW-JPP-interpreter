@@ -1,0 +1,5 @@
+
+const int x = 40;
+const int y = 2;
+const int x = x + y; // Przysłonięcie a nie zmiana wartości.
+print x;

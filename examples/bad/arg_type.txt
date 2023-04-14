@@ -1,0 +1,6 @@
+int double(int x) {
+  return 2 * x;
+}
+
+string s = "Ala ma kota";
+int x = double(s); // Zły typ argumentu

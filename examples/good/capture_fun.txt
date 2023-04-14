@@ -1,0 +1,44 @@
+int f1(int x) {return 0;}
+int (int) get1 = f1;
+int (int) get2 = f1;
+
+int f2(int (int) f) {return 0;}
+int (int (int)) set1 = f2;
+int (int (int)) set2 = f2;
+
+int make(int (int (int)) &f1, int (int) &f2, int a) {
+  // Lokalna zmienna g zostaje przechwycona przez z1 i z2
+  int (int) g = f1;
+
+  int z1(int (int) f) {
+    g = f;
+    return 0;
+  }
+  f1 = z1;
+
+  int z2(int x) {
+    return g(g(x) + a); 
+  }
+  f2 = z2;
+
+  return 0;
+}
+
+int add(int x) {return x + 1;}
+int mul(int x) {return x * 2;}
+
+make(set1, get1, 1);
+set1(add);
+print get1(1); // 4
+set1(mul);
+print get1(1); // 6
+
+make(set2, get2, 2);
+set2(add);
+print get2(1); // 5
+set2(mul);
+print get2(1); // 8
+
+// set2 i get2 odwołują się do własnej zmiennej lokalnej,
+// innej niż set1 i get1
+print get1(1); // 6
