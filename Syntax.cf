@@ -18,23 +18,35 @@ BStmt.     Stmt ::= Block ;
 
 VarDecl.   Stmt ::= Type Ident "=" Expr ";" ;
 
-separator nonempty Item "," ;
+ConstDecl. Stmt ::= "const" Type Ident "=" Expr ";" ;
 
 Ass.       Stmt ::= Ident "=" Expr  ";" ;
 
 Ret.       Stmt ::= "return" Expr ";" ;
 
-IfElse.    Stmt ::= "if" "(" Expr ")" Stmt "else" Stmt  ;
+Bre.       Stmt ::= "break" ";" ;
+
+Cont.      Stmt ::= "continue" ";" ;
+
+If.        Stmt ::= "if" "(" Expr ")" Stmt ;
+
+IfElse.    Stmt ::= "if" "(" Expr ")" Stmt "else" Stmt ;
 
 While.     Stmt ::= "while" "(" Expr ")" Stmt ;
 
+For.       Stmt ::= "for" "(" Ident "=" Expr "to" Expr ")" Stmt;
+
 SExp.      Stmt ::= Expr  ";" ;
+
+Print.     Stmt ::= "print" Expr ";" ;
 
 -- Functions -----------------------------------------------
 
 FnDef.     Stmt ::= Type Ident "(" [Arg] ")" Block ;
 
 Arg. 	     Arg ::= Type Ident;
+
+RefArg. 	 Arg ::= Type "&" Ident;
 
 separator  Arg "," ;
 
@@ -46,7 +58,7 @@ Str.       Type ::= "string" ;
 
 Bool.      Type ::= "bool" ;
 
-internal   Fun. Type ::= Type "(" [Type] ")" ;
+Fun.       Type ::= Type "(" [Type] ")" ;
 
 separator  Type "," ;
 
@@ -60,7 +72,7 @@ ELitTrue.  Expr6 ::= "true" ;
 
 ELitFalse. Expr6 ::= "false" ;
 
-EApp.      Expr6 ::= Ident "(" [Expr] ")" ;
+ECall.     Expr6 ::= Ident "(" [Expr] ")" ;
 
 EString.   Expr6 ::= String ;
 
