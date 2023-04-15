@@ -1,10 +1,13 @@
 -- {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+module TypeChecker where
+
 import Data.Functor.Identity (Identity (runIdentity))
 import Control.Monad.Reader
 import Control.Monad.Except
 import qualified Data.Map
 
 import AbsSyntax
+
 
 data ConstVar = Const | Var
 type FullType = (ConstVar, Type)
