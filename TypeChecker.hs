@@ -1,4 +1,3 @@
--- {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
 module TypeChecker where
 
 import Data.Functor.Identity (Identity (runIdentity))
@@ -22,8 +21,8 @@ emptyEnv = (Data.Map.empty, Nothing)
 -- Checker monad
 type CM a = ReaderT CheckEnv (ExceptT CheckError Identity) a
 
-runIM :: CM a -> CheckEnv -> Either CheckError a
-runIM m env = runIdentity (runExceptT (runReaderT m env))
+runCM :: CM a -> CheckEnv -> Either CheckError a
+runCM m env = runIdentity (runExceptT (runReaderT m env))
 
 getType :: Ident -> CM (Maybe FullType)
 getType id = do
@@ -47,6 +46,25 @@ setReturn r (e, _) = (e, r)
 typeFromFull :: FullType -> Type
 typeFromFull (_, t) = t
 
+
+-- compare Types ---------------------------------------------------------------
+compTypes :: Type -> Type -> Bool
+compTypes (Int _) (Int _) = True
+compTypes (Bool _) (Bool _) = True
+compTypes (Str _) (Str _) = True
+compTypes (Fun _ ret1 args1) (Fun _ ret2 args2) = compTypes ret1 ret2 && compArgsLists args1 args2
+compTypes _ _ = False
+
+compArgTypes :: ArgType -> ArgType -> Bool
+compArgTypes (ValArg _ t1) (ValArg _ t2) = compTypes t1 t2
+compArgTypes (RefArg _ t1) (RefArg _ t2) = compTypes t1 t2
+compArgTypes _ _ = False
+
+compArgsLists :: [ArgType] -> [ArgType] -> Bool
+compArgsLists (h1:t1) (h2:t2) = compArgTypes h1 h2 && compArgsLists t1 t2
+compArgsLists [] [] = True
+compArgsLists _ _ = False
+
 -- checkExpr -------------------------------------------------------------------
 checkExpr :: Expr -> CM Type
 checkExpr (ELitInt line _) = return (Int BNFC'NoPosition)
@@ -55,7 +73,7 @@ checkExpr (ELitTrue line) = return (Bool BNFC'NoPosition)
 
 checkExpr (ELitFalse line) = return (Bool BNFC'NoPosition)
 
-checkExpr (EString line _) = return (Bool BNFC'NoPosition)
+checkExpr (EString line _) = return (Str BNFC'NoPosition)
 
 checkExpr (Neg line expr) = do
   t <- checkExpr expr
@@ -90,9 +108,9 @@ checkExpr (ERel line expr1 _ expr2) = do
   where
     aux_check :: Type -> Type -> CM Type
     aux_check t1 t2
-      | True = throwError ("Comparison of different type values at " ++ show line)
-      | t1 == Int BNFC'NoPosition || t1 == Str BNFC'NoPosition = throwError ("Type " ++ show t1 ++ " is incomparable, at " ++ show line)
-      | otherwise = return (Bool BNFC'NoPosition)
+      | not (compTypes t1 t2) = throwError ("Comparison of different type values at " ++ show line)
+      | compTypes t1 (Int BNFC'NoPosition) || compTypes t1 (Str BNFC'NoPosition) = return (Bool BNFC'NoPosition)
+      | otherwise = throwError ("Type " ++ show t1 ++ " is incomparable, at " ++ show line)
 
 checkExpr (EAnd line expr1 expr2) = do
   t1 <- checkExpr expr1
@@ -135,7 +153,7 @@ checkExpr (ECall line id args) = do
     checkArg (EVar arg_line arg_id) (RefArg _ arg_t) = do
       let arg_t' = removePoss arg_t
       var_t <- checkExpr (EVar arg_line arg_id)
-      if arg_t == var_t
+      if compTypes arg_t var_t
         then return ()
         else throwError ("Mismatched argument type at " ++ show arg_line)
       where
@@ -152,7 +170,7 @@ checkExpr (ECall line id args) = do
     checkArg expr (ValArg _ arg_type) = do
       val_type <- checkExpr expr
       let arg_type' = removePoss arg_type
-      if val_type == arg_type
+      if compTypes val_type arg_type'
         then return ()
         else throwError ("Mismatched argument type at " ++ show (hasPosition expr))
       
@@ -177,20 +195,20 @@ checkStmt (Ret line expr) = do
   ret_t <- getReturn
   case ret_t of
     Nothing -> throwError ("Return outside of function at " ++ show line)
-    Just ret_t' -> if ret_t' == expr_t then return () else throwError ("Wrong type of returned value at " ++ show line)
+    Just ret_t' -> if compTypes ret_t' expr_t then return () else throwError ("Wrong type of returned value at " ++ show line)
   return id
 
 checkStmt (VarDecl line t var_id expr) = do
   let t' = removePoss t
   expr_t <- checkExpr expr
-  if t' == expr_t 
+  if compTypes t' expr_t 
     then return (addToEnv var_id (Var, t'))
     else throwError ("Assigned value doesn't match declared type at, " ++ show line)
 
 checkStmt (ConstDecl line t var_id expr) = do
   let t' = removePoss t
   expr_t <- checkExpr expr
-  if t' == expr_t 
+  if compTypes t' expr_t 
     then return (addToEnv var_id (Const, t'))
     else throwError ("Assigned value doesn't match declared type at, " ++ show line)
 
@@ -201,13 +219,13 @@ checkStmt (Ass line var_id expr) = do
     Just (Const, _) -> throwError ("Can't assign to const at, " ++ show line)
     Just (Var, t) -> return t
   expr_t <- checkExpr expr
-  if expr_t == var_t'
+  if compTypes expr_t var_t'
     then return id
     else throwError ("Mismatched expression value in assign, at " ++ show line)
 
 checkStmt (If line cond body) = do
   cond_t <- checkExpr cond
-  if cond_t == Bool BNFC'NoPosition
+  if compTypes cond_t (Bool BNFC'NoPosition)
     then return ()
     else throwError ("Condition must be of type bool, at " ++ show line)
   checkStmt body
@@ -215,7 +233,7 @@ checkStmt (If line cond body) = do
 
 checkStmt (IfElse line cond body1 body2) = do
   cond_t <- checkExpr cond
-  if cond_t == Bool BNFC'NoPosition
+  if compTypes cond_t (Bool BNFC'NoPosition)
     then return ()
     else throwError ("Condition must be of type bool, at " ++ show line)
   checkStmt body1
@@ -224,7 +242,7 @@ checkStmt (IfElse line cond body1 body2) = do
 
 checkStmt (While line cond body) = do
   cond_t <- checkExpr cond
-  if cond_t == Bool BNFC'NoPosition
+  if compTypes cond_t (Bool BNFC'NoPosition)
     then return ()
     else throwError ("Condition must be of type bool, at " ++ show line)
   checkStmt body
@@ -254,10 +272,14 @@ checkStmt (Print line expr) = do
   return id
 
 checkStmt (FnDef line ret_t f_id args body) = do
-  let args' = foldr (\arg f -> add_arg arg . f) id args
-  let env_mod = args' . setReturn (Just (removePoss ret_t))
+  let ret_t' = removePoss ret_t
+  let args_t = map (\(Arg _ t _) -> t) args
+  let fun_t = Fun BNFC'NoPosition ret_t' args_t
+  let args_f = foldr (\arg f -> add_arg arg . f) id args
+  let add_fun = addToEnv f_id (Const, fun_t)
+  let env_mod = args_f . setReturn (Just ret_t') . add_fun
   local env_mod (checkStmt body)
-  return id
+  return add_fun
     where
       add_arg :: Arg -> CheckEnv -> CheckEnv
       add_arg (Arg _ (ValArg _ arg_t) arg_id) = addToEnv arg_id (Var, removePoss arg_t)
@@ -277,3 +299,10 @@ checkBlock (Block _ (h:t)) = do
 -- checkProg -------------------------------------------------------------------
 checkProg :: Program -> CM ()
 checkProg (Program line stmts) = checkBlock (Block line stmts)
+
+typeCheckProgram :: Program -> Maybe CheckError
+typeCheckProgram program = case monad_result of
+  Left s -> Just s
+  Right _ -> Nothing
+  where
+    monad_result = runCM (checkProg program) emptyEnv
