@@ -42,11 +42,15 @@ Print.     Stmt ::= "print" Expr ";" ;
 
 -- Functions -----------------------------------------------
 
-FnDef.     Stmt ::= Type Ident "(" [Arg] ")" Block ;
+ValArg.    ArgType ::= Type ;
 
-Arg. 	     Arg ::= Type Ident;
+RefArg.    ArgType ::= Type "&" ;
 
-RefArg. 	 Arg ::= Type "&" Ident;
+separator  ArgType "," ;
+
+FnDef.     Stmt ::= Type Ident "(" [Arg] ")" Stmt ;
+
+Arg. 	     Arg ::= ArgType Ident;
 
 separator  Arg "," ;
 
@@ -58,7 +62,7 @@ Str.       Type ::= "string" ;
 
 Bool.      Type ::= "bool" ;
 
-Fun.       Type ::= Type "(" [Type] ")" ;
+Fun.       Type ::= Type "(" [ArgType] ")" ;
 
 separator  Type "," ;
 
