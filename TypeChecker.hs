@@ -151,7 +151,6 @@ checkExpr (ECall line id args) = do
 
     checkArg :: Expr -> ArgType -> CM ()
     checkArg (EVar arg_line arg_id) (RefArg _ arg_t) = do
-      let arg_t' = removePoss arg_t
       var_t <- checkExpr (EVar arg_line arg_id)
       if compTypes arg_t var_t
         then return ()
@@ -169,18 +168,9 @@ checkExpr (ECall line id args) = do
 
     checkArg expr (ValArg _ arg_type) = do
       val_type <- checkExpr expr
-      let arg_type' = removePoss arg_type
-      if compTypes val_type arg_type'
+      if compTypes val_type arg_type
         then return ()
         else throwError ("Mismatched argument type at " ++ show (hasPosition expr))
-      
-
-
-removePoss :: Type -> Type
-removePoss (Bool _) = Bool BNFC'NoPosition
-removePoss (Int _) = Int BNFC'NoPosition
-removePoss (Str _) = Str BNFC'NoPosition
-removePoss (Fun _ r a) = Fun BNFC'NoPosition r a
 
 -- checkStmt -------------------------------------------------------------------
 checkStmt :: Stmt -> CM (CheckEnv -> CheckEnv)
@@ -199,17 +189,15 @@ checkStmt (Ret line expr) = do
   return id
 
 checkStmt (VarDecl line t var_id expr) = do
-  let t' = removePoss t
   expr_t <- checkExpr expr
-  if compTypes t' expr_t 
-    then return (addToEnv var_id (Var, t'))
+  if compTypes t expr_t 
+    then return (addToEnv var_id (Var, t))
     else throwError ("Assigned value doesn't match declared type at, " ++ show line)
 
 checkStmt (ConstDecl line t var_id expr) = do
-  let t' = removePoss t
   expr_t <- checkExpr expr
-  if compTypes t' expr_t 
-    then return (addToEnv var_id (Const, t'))
+  if compTypes t expr_t 
+    then return (addToEnv var_id (Const, t))
     else throwError ("Assigned value doesn't match declared type at, " ++ show line)
 
 checkStmt (Ass line var_id expr) = do
@@ -272,18 +260,17 @@ checkStmt (Print line expr) = do
   return id
 
 checkStmt (FnDef line ret_t f_id args body) = do
-  let ret_t' = removePoss ret_t
   let args_t = map (\(Arg _ t _) -> t) args
-  let fun_t = Fun BNFC'NoPosition ret_t' args_t
+  let fun_t = Fun BNFC'NoPosition ret_t args_t
   let args_f = foldr (\arg f -> add_arg arg . f) id args
   let add_fun = addToEnv f_id (Const, fun_t)
-  let env_mod = args_f . setReturn (Just ret_t') . add_fun
+  let env_mod = args_f . setReturn (Just ret_t) . add_fun
   local env_mod (checkStmt body)
   return add_fun
     where
       add_arg :: Arg -> CheckEnv -> CheckEnv
-      add_arg (Arg _ (ValArg _ arg_t) arg_id) = addToEnv arg_id (Var, removePoss arg_t)
-      add_arg (Arg _ (RefArg _ arg_t) arg_id) = addToEnv arg_id (Var, removePoss arg_t)
+      add_arg (Arg _ (ValArg _ arg_t) arg_id) = addToEnv arg_id (Var, arg_t)
+      add_arg (Arg _ (RefArg _ arg_t) arg_id) = addToEnv arg_id (Var, arg_t)
 
 checkStmt (BStmt line block) = do
   checkBlock block
