@@ -11,7 +11,7 @@ int f(int x) {
 }
 
 int g(int x) {
-  return g * 2;
+  return x * 2;
 }
 
 int (int) fg = comp(f, g);

@@ -1,0 +1,11 @@
+int pow(int a, int q) {
+  int aux(int r, int q) {
+    if (q > 0) {
+      return aux(r * a, q - 1);
+    } else {
+      return r;
+    }
+  }
+}
+
+int x = pow(2, 4);

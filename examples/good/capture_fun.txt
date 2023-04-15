@@ -6,7 +6,7 @@ int f2(int (int) f) {return 0;}
 int (int (int)) set1 = f2;
 int (int (int)) set2 = f2;
 
-int make(int (int (int)) &f1, int (int) &f2, int a) {
+int make(int (int (int)) &f1_loc, int (int) &f2_loc, int a) {
   // Lokalna zmienna g zostaje przechwycona przez z1 i z2
   int (int) g = f1;
 
@@ -14,12 +14,12 @@ int make(int (int (int)) &f1, int (int) &f2, int a) {
     g = f;
     return 0;
   }
-  f1 = z1;
+  f1_loc = z1;
 
   int z2(int x) {
     return g(g(x) + a); 
   }
-  f2 = z2;
+  f2_loc = z2;
 
   return 0;
 }
