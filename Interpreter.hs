@@ -160,6 +160,12 @@ evalExpr (EOr _ e1 e2) = do
     (VBool b1, VBool b2) -> return (VBool (b1 || b2))
     _ -> undefined
 
+evalExpr (Not _ e) = do
+  v <- evalExpr e
+  case v of
+    VBool b -> return (VBool (not b))
+    _ -> undefined
+
 evalExpr (ECall _ id args) = do
   fun <- getVar id
   case fun of
