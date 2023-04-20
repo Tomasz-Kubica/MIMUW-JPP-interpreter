@@ -210,6 +210,10 @@ insertArgs ((Arg _ (RefArg _ _) a_id):at) ((EVar _ e_id):et) = do
 evalStmt :: Stmt -> IM (IntEnv -> IntEnv)
 evalStmt (Empty _) = return id
 
+evalStmt (BStmt _ (Block _ stmts)) = do 
+  evalStmtArr stmts
+  return id
+
 evalStmt (VarDecl _ _ id expr) = do
   v <- evalExpr expr
   l <- newLoc
@@ -274,3 +278,21 @@ evalStmt (FnDef line _ f_id args body) = do
       catch_error EBreak = throwError (UserError ("Break outside of loop in function defined at " ++ show line))
       catch_error EContinue = throwError (UserError ("Continue outside of loop in function defined at " ++ show line))
       catch_error e = throwError e
+
+evalStmt (While line cond body) = do
+  cond_v <- evalExpr cond
+  let body_m = evalStmt body
+  case cond_v of
+    VBool b -> if b 
+      then body_m >> evalStmt (While line cond body) 
+      else return id
+    _ -> undefined
+  return id
+
+
+evalStmtArr :: [Stmt] -> IM ()
+evalStmtArr [] = return ()
+
+evalStmtArr (stmt:t) = do
+  f <- evalStmt stmt
+  local f (evalStmtArr t)
