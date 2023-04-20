@@ -14,7 +14,7 @@ import Llvm (LlvmStatement(Return))
 
 data Value = VInt Integer | VBool Bool | VStr String | VFun IntEnv [Arg] (IM Value)
 
-data IntException = UserError String | Return Value | Break | Continue
+data IntException = UserError String | EReturn Value | EBreak | EContinue
 
 type Loc = Int
 
@@ -112,6 +112,19 @@ relOpEval op (VStr a) (VStr b) = return (VBool (f a b))
   where
     f = relOpFun op
 
+
+--- Show Val -------------------------------------------------------------------
+
+myShowVal :: Value -> String
+myShowVal (VInt x) = show x
+
+myShowVal (VStr s) = show s
+
+myShowVal (VBool True) = "True"
+
+myShowVal (VBool False) = "False"
+
+
 --- Eval Expr ------------------------------------------------------------------
 
 evalExpr :: Expr -> IM Value
@@ -191,3 +204,73 @@ insertArgs ((Arg _ (RefArg _ _) a_id):at) ((EVar _ e_id):et) = do
   insert_rest <- insertArgs at et
   return (insert_rest . insert_arg)
 
+
+--- Eval Stmt ------------------------------------------------------------------
+
+evalStmt :: Stmt -> IM (IntEnv -> IntEnv)
+evalStmt (Empty _) = return id
+
+evalStmt (VarDecl _ _ id expr) = do
+  v <- evalExpr expr
+  l <- newLoc
+  setValue l v
+  return (setLoc id l)
+
+-- Const constraints are checked by TypeChecker
+evalStmt (ConstDecl l t id expr) = evalStmt (VarDecl l t id expr)
+
+evalStmt (Ass _ vid expr) = do
+  v <- evalExpr expr
+  l <- getLoc vid
+  setValue l v
+  return id
+
+evalStmt (Ret _ expr) = do
+  v <- evalExpr expr
+  throwError (EReturn v)
+
+evalStmt (Bre _) = do
+  throwError EBreak
+
+evalStmt (Cont _) = do
+  throwError EContinue
+
+evalStmt (If _ cond stmt) = do
+  v_cond <- evalExpr cond
+  case v_cond of
+    VBool b -> if b then evalStmt stmt else return id
+    _ -> undefined
+
+evalStmt (IfElse _ cond stmt_t stmt_f) = do
+  v_cond <- evalExpr cond
+  case v_cond of
+    VBool b -> evalStmt (if b then stmt_t else stmt_f)
+    _ -> undefined
+
+evalStmt (SExp _ expr) = do
+  evalExpr expr
+  return id
+
+evalStmt (Print _ expr) = do
+  v <- evalExpr expr
+  let s = myShowVal v
+  tell [s]
+  return id
+
+evalStmt (FnDef line _ f_id args body) = do
+  l <- newLoc
+  let body_m = evalStmt body
+  let body_m' = body_m >> throwError (UserError ("Function ended without return, defined at " ++ show line))
+  let body_m'' = catchError body_m' catch_error
+  env <- ask
+  let insert_fun = setLoc f_id l
+  let fun_env = insert_fun env
+  let fun = VFun fun_env args body_m''
+  setValue l fun
+  return insert_fun
+    where
+      catch_error :: IntException -> IM Value
+      catch_error (EReturn v) = return v
+      catch_error EBreak = throwError (UserError ("Break outside of loop in function defined at " ++ show line))
+      catch_error EContinue = throwError (UserError ("Continue outside of loop in function defined at " ++ show line))
+      catch_error e = throwError e
