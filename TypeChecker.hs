@@ -94,11 +94,12 @@ checkExpr (EMul line expr1 _ expr2) = do
     (Int _, Int _) -> return (Int BNFC'NoPosition)
     _ -> throwError ("Mul type operation of non-integer values at " ++ show line)
 
-checkExpr (EAdd line expr1 _ expr2) = do
+checkExpr (EAdd line expr1 op expr2) = do
   t1 <- checkExpr expr1
   t2 <- checkExpr expr2
-  case (t1, t2) of
-    (Int _, Int _) -> return (Int BNFC'NoPosition)
+  case (t1, t2, op) of
+    (Int _, Int _, _) -> return (Int BNFC'NoPosition)
+    (Str _, Str _, Plus _) -> return (Str BNFC'NoPosition)
     _ -> throwError ("Add type operation of non-integer values at " ++ show line)
 
 checkExpr (ERel line expr1 _ expr2) = do
