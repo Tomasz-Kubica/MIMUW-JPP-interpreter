@@ -1,5 +1,4 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
-{-# HLINT ignore "Use void" #-}
 module Interpreter where
 
 import Data.Functor.Identity (Identity (runIdentity))
@@ -10,7 +9,6 @@ import Control.Monad.Except
 import qualified Data.Map
 
 import AbsSyntax
-import Llvm (LlvmStatement(Return))
 
 
 data Value = VInt Integer | VBool Bool | VStr String | VFun IntEnv [Arg] (IM Value)
@@ -38,12 +36,26 @@ runIM monad env store = (res, out)
   where
     ((res, out), _) = runIdentity (runStateT (runReaderT (runWriterT (runExceptT monad)) env) store)
 
+--- Pretty shows ---------------------------------------------------------------
+
+showLine :: BNFC'Position -> String
+showLine (Just (l, c)) = "line " ++ show l ++ ", clolumn " ++ show c
+showLine Nothing = "No position"
+
+showE :: IntException -> String
+showE (UserError s) = s
+
+showOut :: Output -> String
+showOut (h:t) = h ++ "\n" ++ showOut t
+
+showOut [] = ""
+
 --- Access Env and Store -------------------------------------------------------
 
 getLoc :: Ident -> IM Loc
 getLoc id = do
   env <- ask
-  maybe undefined return (Data.Map.lookup id env)
+  maybe (throwError (UserError ("loc" ++ show id))) return (Data.Map.lookup id env)
 
 setLoc :: Ident -> Loc -> IntEnv -> IntEnv
 setLoc = Data.Map.insert
@@ -88,11 +100,11 @@ addOpEval (Minus _) (VInt a) (VInt b) = return (VInt (a - b))
 mulOpEval :: MulOp -> Value -> Value -> IM Value
 mulOpEval (Times _) (VInt a) (VInt b) = return (VInt (a * b))
 
-mulOpEval (Div line) (VInt a) (VInt 0) = throwError (UserError ("Division by zero at " ++ show line))
+mulOpEval (Div line) (VInt a) (VInt 0) = throwError (UserError ("Division by zero at " ++ showLine line))
 
 mulOpEval (Div _) (VInt a) (VInt b) = return (VInt (div a  b))
 
-mulOpEval (Mod line) (VInt a) (VInt 0) = throwError (UserError ("Modulo by zero at " ++ show line))
+mulOpEval (Mod line) (VInt a) (VInt 0) = throwError (UserError ("Modulo by zero at " ++ showLine line))
 
 mulOpEval (Mod _) (VInt a) (VInt b) = return (VInt (mod a b))
 
@@ -185,7 +197,8 @@ evalExpr (ECall _ id args) = do
   case fun of
     VFun f_env f_args f_body -> do
       insert_args <- insertArgs f_args args
-      local insert_args f_body
+      let f_body' = local (const (insert_args f_env)) f_body
+      local insert_args f_body'
     _ -> undefined
 
 insertArgs :: [Arg] -> [Expr] -> IM (IntEnv -> IntEnv)
@@ -211,7 +224,7 @@ insertArgs ((Arg _ (RefArg _ _) a_id):at) ((EVar _ e_id):et) = do
 evalStmt :: Stmt -> IM (IntEnv -> IntEnv)
 evalStmt (Empty _) = return id
 
-evalStmt (BStmt _ (Block _ stmts)) = do 
+evalStmt (BStmt _ (Block _ stmts)) = do
   evalStmtArr stmts
   return id
 
@@ -265,7 +278,7 @@ evalStmt (Print _ expr) = do
 evalStmt (FnDef line _ f_id args body) = do
   l <- newLoc
   let body_m = evalStmt body
-  let body_m' = body_m >> throwError (UserError ("Function ended without return, defined at " ++ show line))
+  let body_m' = body_m >> throwError (UserError ("Function ended without return, defined at " ++ showLine line))
   let body_m'' = catchError body_m' catch_error
   env <- ask
   let insert_fun = setLoc f_id l
@@ -276,16 +289,16 @@ evalStmt (FnDef line _ f_id args body) = do
     where
       catch_error :: IntException -> IM Value
       catch_error (EReturn v) = return v
-      catch_error EBreak = throwError (UserError ("Break outside of loop in function defined at " ++ show line))
-      catch_error EContinue = throwError (UserError ("Continue outside of loop in function defined at " ++ show line))
+      catch_error EBreak = throwError (UserError ("Break outside of loop in function defined at " ++ showLine line))
+      catch_error EContinue = throwError (UserError ("Continue outside of loop in function defined at " ++ showLine line))
       catch_error e = throwError e
 
 evalStmt (While line cond body) = do
   cond_v <- evalExpr cond
   let body_m = evalStmt body
   case cond_v of
-    VBool b -> if b 
-      then body_m >> evalStmt (While line cond body) 
+    VBool b -> if b
+      then body_m >> evalStmt (While line cond body)
       else return id
     _ -> undefined
   return id
@@ -294,7 +307,7 @@ evalStmt (For _ v_id start end body) = do
   v_start <- evalExpr start
   v_end <- evalExpr end
   let values = for_values v_start v_end
-  let bodies_monad = foldr (\v m -> m >> val_to_monad v) (return ()) values
+  let bodies_monad = foldr (\v m -> val_to_monad v >> m) (return ()) values
   catchError bodies_monad catch_brk
   return id
     where
@@ -302,7 +315,7 @@ evalStmt (For _ v_id start end body) = do
       for_values (VInt s) (VInt e)
         | s <= e = VInt s:for_values (VInt (s + 1)) (VInt e)
         | otherwise = []
-      
+
       body_monad = evalStmt body >> return ()
       body_monad' = catchError body_monad catch_cont
 
@@ -320,6 +333,19 @@ evalStmt (For _ v_id start end body) = do
         setValue l v
         local (setLoc v_id l) body_monad'
 
+
+--- Eval Program ---------------------------------------------------------------
+
+evalProg :: Program -> IM ()
+evalProg (Program _ stmts) = evalStmtArr stmts
+
+interpretProgram :: Program -> (Maybe IntException, Output)
+interpretProgram prg = (r_except, out)
+  where
+   (except, out) = runIM (evalProg prg) emptyEnv emptyStore
+   r_except = case except of
+     Left e -> Just e
+     Right _ -> Nothing
 
 evalStmtArr :: [Stmt] -> IM ()
 evalStmtArr [] = return ()

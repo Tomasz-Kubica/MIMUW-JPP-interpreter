@@ -46,6 +46,10 @@ setReturn r (e, _) = (e, r)
 typeFromFull :: FullType -> Type
 typeFromFull (_, t) = t
 
+showLine :: BNFC'Position -> String
+showLine (Just (l, c)) = "line " ++ show l ++ ", clolumn " ++ show c
+showLine Nothing = "No position"
+
 
 -- compare Types ---------------------------------------------------------------
 compTypes :: Type -> Type -> Bool
@@ -79,20 +83,20 @@ checkExpr (Neg line expr) = do
   t <- checkExpr expr
   case t of
     Int _ -> return (Int BNFC'NoPosition)
-    _ -> throwError ("Integer negation of non-integer value at " ++ show line)
+    _ -> throwError ("Integer negation of non-integer value at " ++ showLine line)
 
 checkExpr (Not line expr) = do
   t <- checkExpr expr
   case t of
     Bool _ -> return (Int BNFC'NoPosition)
-    _ -> throwError ("Bool negation of non-bool value at " ++ show line)
+    _ -> throwError ("Bool negation of non-bool value at " ++ showLine line)
 
 checkExpr (EMul line expr1 _ expr2) = do
   t1 <- checkExpr expr1
   t2 <- checkExpr expr2
   case (t1, t2) of
     (Int _, Int _) -> return (Int BNFC'NoPosition)
-    _ -> throwError ("Mul type operation of non-integer values at " ++ show line)
+    _ -> throwError ("Mul type operation of non-integer values at " ++ showLine line)
 
 checkExpr (EAdd line expr1 op expr2) = do
   t1 <- checkExpr expr1
@@ -100,7 +104,7 @@ checkExpr (EAdd line expr1 op expr2) = do
   case (t1, t2, op) of
     (Int _, Int _, _) -> return (Int BNFC'NoPosition)
     (Str _, Str _, Plus _) -> return (Str BNFC'NoPosition)
-    _ -> throwError ("Add type operation of non-integer values at " ++ show line)
+    _ -> throwError ("Add type operation of non-integer values at " ++ showLine line)
 
 checkExpr (ERel line expr1 _ expr2) = do
   type1 <- checkExpr expr1
@@ -109,29 +113,29 @@ checkExpr (ERel line expr1 _ expr2) = do
   where
     aux_check :: Type -> Type -> CM Type
     aux_check t1 t2
-      | not (compTypes t1 t2) = throwError ("Comparison of different type values at " ++ show line)
+      | not (compTypes t1 t2) = throwError ("Comparison of different type values at " ++ showLine line)
       | compTypes t1 (Int BNFC'NoPosition) || compTypes t1 (Str BNFC'NoPosition) = return (Bool BNFC'NoPosition)
-      | otherwise = throwError ("Type " ++ show t1 ++ " is incomparable, at " ++ show line)
+      | otherwise = throwError ("Type " ++ show t1 ++ " is incomparable, at " ++ showLine line)
 
 checkExpr (EAnd line expr1 expr2) = do
   t1 <- checkExpr expr1
   t2 <- checkExpr expr2
   case (t1, t2) of
     (Bool _, Bool _) -> return (Bool BNFC'NoPosition)
-    _ -> throwError ("Logic operation of non-bool values at " ++ show line)
+    _ -> throwError ("Logic operation of non-bool values at " ++ showLine line)
 
 checkExpr (EOr line expr1 expr2) = do
   t1 <- checkExpr expr1
   t2 <- checkExpr expr2
   case (t1, t2) of
     (Bool _, Bool _) -> return (Bool BNFC'NoPosition)
-    _ -> throwError ("Logic operation of non-bool values at " ++ show line)
+    _ -> throwError ("Logic operation of non-bool values at " ++ showLine line)
 
 checkExpr (EVar line x) = do
   maybe_t <- getType x
   case maybe_t of
     Just t -> return (typeFromFull t)
-    Nothing -> throwError ("Variable " ++ show x ++ " not in scope at " ++ show line)
+    Nothing -> throwError ("Variable " ++ show x ++ " not in scope at " ++ showLine line)
 
 checkExpr (ECall line id args) = do
   full_type <- getType id
@@ -140,14 +144,14 @@ checkExpr (ECall line id args) = do
   return ret_type
   where
     funType :: Maybe FullType -> CM (Type, [ArgType])
-    funType Nothing = throwError ("Function " ++ show id ++ " not in scope, at " ++ show line)
+    funType Nothing = throwError ("Function " ++ show id ++ " not in scope, at " ++ showLine line)
     funType (Just (_, Fun _ ret args)) = return (ret, args)
-    funType _ = throwError (show id ++ " is not a function, at " ++ show line)
+    funType _ = throwError (show id ++ " is not a function, at " ++ showLine line)
 
     checkArgs :: [Expr] -> [ArgType] -> CM ()
     checkArgs [] [] = return ()
-    checkArgs [] _ = throwError ("Too many arguments for function " ++ show id ++ " at " ++ show line) 
-    checkArgs _ [] = throwError ("Not enough arguments for function " ++ show id ++ " at " ++ show line)
+    checkArgs [] _ = throwError ("Too many arguments for function " ++ show id ++ " at " ++ showLine line) 
+    checkArgs _ [] = throwError ("Not enough arguments for function " ++ show id ++ " at " ++ showLine line)
     checkArgs (e:et) (t:tt) = checkArg e t >> checkArgs et tt
 
     checkArg :: Expr -> ArgType -> CM ()
@@ -155,23 +159,23 @@ checkExpr (ECall line id args) = do
       var_t <- checkExpr (EVar arg_line arg_id)
       if compTypes arg_t var_t
         then return ()
-        else throwError ("Mismatched argument type at " ++ show arg_line)
+        else throwError ("Mismatched argument type at " ++ showLine arg_line)
       where
         checkConst :: Ident -> CM ()
         checkConst id = do
           x <- getType id
           case x of
             Nothing -> undefined -- if expr is correct this is impossible
-            Just (Const, _) -> throwError ("Cant assign const as reference argument, at " ++ show arg_line) 
+            Just (Const, _) -> throwError ("Cant assign const as reference argument, at " ++ showLine arg_line) 
             _ -> return () 
         
-    checkArg expr (RefArg _ _) = throwError ("Argument of type reference must be a variable, at " ++ show (hasPosition expr))
+    checkArg expr (RefArg _ _) = throwError ("Argument of type reference must be a variable, at " ++ showLine (hasPosition expr))
 
     checkArg expr (ValArg _ arg_type) = do
       val_type <- checkExpr expr
       if compTypes val_type arg_type
         then return ()
-        else throwError ("Mismatched argument type at " ++ show (hasPosition expr))
+        else throwError ("Mismatched argument type at " ++ showLine (hasPosition expr))
 
 -- checkStmt -------------------------------------------------------------------
 checkStmt :: Stmt -> CM (CheckEnv -> CheckEnv)
@@ -185,38 +189,38 @@ checkStmt (Ret line expr) = do
   expr_t <- checkExpr expr
   ret_t <- getReturn
   case ret_t of
-    Nothing -> throwError ("Return outside of function at " ++ show line)
-    Just ret_t' -> if compTypes ret_t' expr_t then return () else throwError ("Wrong type of returned value at " ++ show line)
+    Nothing -> throwError ("Return outside of function at " ++ showLine line)
+    Just ret_t' -> if compTypes ret_t' expr_t then return () else throwError ("Wrong type of returned value at " ++ showLine line)
   return id
 
 checkStmt (VarDecl line t var_id expr) = do
   expr_t <- checkExpr expr
   if compTypes t expr_t 
     then return (addToEnv var_id (Var, t))
-    else throwError ("Assigned value doesn't match declared type at, " ++ show line)
+    else throwError ("Assigned value doesn't match declared type at, " ++ showLine line)
 
 checkStmt (ConstDecl line t var_id expr) = do
   expr_t <- checkExpr expr
   if compTypes t expr_t 
     then return (addToEnv var_id (Const, t))
-    else throwError ("Assigned value doesn't match declared type at, " ++ show line)
+    else throwError ("Assigned value doesn't match declared type at, " ++ showLine line)
 
 checkStmt (Ass line var_id expr) = do
   var_t <- getType var_id
   var_t' <- case var_t of
-    Nothing -> throwError ("Can't assign to not declared variable at, " ++ show line)
-    Just (Const, _) -> throwError ("Can't assign to const at, " ++ show line)
+    Nothing -> throwError ("Can't assign to not declared variable at, " ++ showLine line)
+    Just (Const, _) -> throwError ("Can't assign to const at, " ++ showLine line)
     Just (Var, t) -> return t
   expr_t <- checkExpr expr
   if compTypes expr_t var_t'
     then return id
-    else throwError ("Mismatched expression value in assign, at " ++ show line)
+    else throwError ("Mismatched expression value in assign, at " ++ showLine line)
 
 checkStmt (If line cond body) = do
   cond_t <- checkExpr cond
   if compTypes cond_t (Bool BNFC'NoPosition)
     then return ()
-    else throwError ("Condition must be of type bool, at " ++ show line)
+    else throwError ("Condition must be of type bool, at " ++ showLine line)
   checkStmt body
   return id
 
@@ -224,7 +228,7 @@ checkStmt (IfElse line cond body1 body2) = do
   cond_t <- checkExpr cond
   if compTypes cond_t (Bool BNFC'NoPosition)
     then return ()
-    else throwError ("Condition must be of type bool, at " ++ show line)
+    else throwError ("Condition must be of type bool, at " ++ showLine line)
   checkStmt body1
   checkStmt body2
   return id
@@ -233,7 +237,7 @@ checkStmt (While line cond body) = do
   cond_t <- checkExpr cond
   if compTypes cond_t (Bool BNFC'NoPosition)
     then return ()
-    else throwError ("Condition must be of type bool, at " ++ show line)
+    else throwError ("Condition must be of type bool, at " ++ showLine line)
   checkStmt body
   return id
 
@@ -247,7 +251,7 @@ checkStmt (For line var_id beg end body) = do
     where
       checkInt :: Type -> CM ()
       checkInt (Int _) = return ()
-      checkInt _ = throwError ("Beginning and end values in for must be of type int, at " ++ show line)
+      checkInt _ = throwError ("Beginning and end values in for must be of type int, at " ++ showLine line)
 
 checkStmt (SExp _ expr) = do 
   checkExpr expr
@@ -256,7 +260,7 @@ checkStmt (SExp _ expr) = do
 checkStmt (Print line expr) = do
   expr_t <- checkExpr expr
   case expr_t of
-    Fun {} -> throwError ("Can't print a function, at " ++ show line)
+    Fun {} -> throwError ("Can't print a function, at " ++ showLine line)
     _ -> return ()
   return id
 
