@@ -1,4 +1,5 @@
 {-# OPTIONS_GHC -Wno-incomplete-patterns #-}
+{-# HLINT ignore "Use void" #-}
 module Interpreter where
 
 import Data.Functor.Identity (Identity (runIdentity))
@@ -288,6 +289,36 @@ evalStmt (While line cond body) = do
       else return id
     _ -> undefined
   return id
+
+evalStmt (For _ v_id start end body) = do
+  v_start <- evalExpr start
+  v_end <- evalExpr end
+  let values = for_values v_start v_end
+  let bodies_monad = foldr (\v m -> m >> val_to_monad v) (return ()) values
+  catchError bodies_monad catch_brk
+  return id
+    where
+      for_values :: Value -> Value -> [Value]
+      for_values (VInt s) (VInt e)
+        | s <= e = VInt s:for_values (VInt (s + 1)) (VInt e)
+        | otherwise = []
+      
+      body_monad = evalStmt body >> return ()
+      body_monad' = catchError body_monad catch_cont
+
+      catch_cont :: IntException -> IM ()
+      catch_cont EContinue = return ()
+      catch_cont e = throwError e
+
+      catch_brk :: IntException -> IM ()
+      catch_brk EBreak = return ()
+      catch_brk e = throwError e
+
+      val_to_monad :: Value -> IM ()
+      val_to_monad v = do
+        l <- newLoc
+        setValue l v
+        local (setLoc v_id l) body_monad'
 
 
 evalStmtArr :: [Stmt] -> IM ()
