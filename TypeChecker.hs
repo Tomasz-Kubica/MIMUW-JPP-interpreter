@@ -160,6 +160,7 @@ checkExpr (ECall line id args) = do
       if compTypes arg_t var_t
         then return ()
         else throwError ("Mismatched argument type at " ++ showLine arg_line)
+      checkConst arg_id
       where
         checkConst :: Ident -> CM ()
         checkConst id = do
