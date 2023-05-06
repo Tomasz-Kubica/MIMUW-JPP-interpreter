@@ -1,0 +1,8 @@
+string ala = "ala";
+string ma = "ma";
+string kota = "kota";
+string space = " ";
+
+string ala_ma_kota = ala + space + ma + space + kota;
+
+print ala_ma_kota;

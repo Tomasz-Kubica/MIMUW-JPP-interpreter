@@ -1,0 +1,14 @@
+int x = 42;
+int y = 2;
+
+print x * y; // 84
+print x + 1; // 43
+print x / 2; // 21
+print x / 5; // 8
+print x % 2; // 0
+print x % 40; // 2
+
+print x == 42; // true
+print x != 42; // false
+print x < 50; // true
+print x > 50; // false

@@ -1,0 +1,13 @@
+print "prime numbers:";
+
+int x = 2;
+
+while (x > 0) {
+  bool prime = true;
+  for (div = 2 to x - 1)
+    if (x % div == 0) prime = false;
+  if (prime) print x;
+  x = x + 1;
+}
+
+print "This will never print";

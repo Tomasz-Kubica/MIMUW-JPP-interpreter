@@ -1,0 +1,7 @@
+int x = 1;
+bool y = true;
+string z = "ala ma kota";
+
+print x;
+print y;
+print z;

@@ -6,3 +6,9 @@ int inc(int &x) {
 int x = 0;
 inc(x);
 print x; // 1
+
+inc(x);
+print x; // 2
+
+inc(x);
+print x; // 3

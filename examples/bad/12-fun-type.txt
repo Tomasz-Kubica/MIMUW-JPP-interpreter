@@ -1,0 +1,7 @@
+int f(int x, int y) {
+  return x + y;
+}
+
+int (int, int) z = f; // dobry typ funkcji
+
+int (int, int, int) g = f; // zły typ funkcji

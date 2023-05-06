@@ -1,0 +1,6 @@
+int f(int &x) {
+  x = x + 42;
+  return 0;
+}
+
+f(0);

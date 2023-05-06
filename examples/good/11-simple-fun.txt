@@ -5,4 +5,4 @@ int fun (int y) {
   return x + y;
 }
 
-print fun (7);
+print fun (7); // 50

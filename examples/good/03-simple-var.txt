@@ -1,0 +1,11 @@
+int x = 1;
+
+print x; // 1
+
+x = x + 1;
+
+print x; // 2
+
+x = 42;
+
+print x; // 42

@@ -1,0 +1,16 @@
+int x = 1500100900;
+
+int () make(int a) {
+  int x = 2 * a;
+
+  int f() {
+    return x;
+  }
+  
+  return f;
+}
+
+int () fun = make(21);
+
+// Zwraca x widocznego w miejscu zdefiniowania funkcji a nie wywołania
+print fun();
