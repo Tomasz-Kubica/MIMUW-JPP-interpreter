@@ -6,27 +6,37 @@ import AbsSyntax
 import TypeChecker(typeCheckProgram)
 import Interpreter(interpretProgram, showE, showOut)
 import System.Environment ( getArgs )
+import System.IO (hPutStrLn, stderr)
 
 import qualified Data.Maybe
 
-check :: [Char] -> String
+check :: [Char] -> IO ()
 check s = case program of
-  Left parser_err -> parser_err
-  Right program -> Data.Maybe.fromMaybe (inter program) (typeCheckProgram program)
+  Left parser_err -> hPutStrLn stderr parser_err
+  Right program -> typeCheckM program >>= inter program
   where
     tokens = myLexer s
     program = pProgram tokens
 
-checkM :: [Char] -> IO ()
-checkM s = putStrLn (check s)
+typeCheckM :: Program -> IO Bool
+typeCheckM p = do
+  let res = typeCheckProgram p
+  case res of
+    Nothing -> return True
+    Just err -> hPutStrLn stderr err >> return False
 
 checkFile :: FilePath -> IO ()
-checkFile f = readFile f >>= checkM
+checkFile f = readFile f >>= check
 
-inter :: Program -> String
-inter program = showOut out ++ maybe "" showE except
+inter :: Program -> Bool -> IO ()
+inter program True = do
+  putStr (showOut out)
+  hPutStrLn stderr err_to_print
   where
     (except, out) = interpretProgram program
+    err_to_print = maybe "" showE except
+
+inter _ False = return ()
 
 usage :: IO ()
 usage = do
@@ -42,6 +52,6 @@ main = do
   args <- getArgs
   case args of
     ["--help"] -> usage
-    []         -> getContents >>= checkM
+    []         -> getContents >>= check
     fs         -> mapM_ checkFile fs
 
