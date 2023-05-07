@@ -50,6 +50,11 @@ showLine :: BNFC'Position -> String
 showLine (Just (l, c)) = "line " ++ show l ++ ", clolumn " ++ show c
 showLine Nothing = "No position"
 
+showType :: Type -> String
+showType (Int _) = "int"
+showType (Bool _) = "bool"
+showType (Str _) = "string"
+showType Fun {} = "function (can't print details of function type)"
 
 -- compare Types ---------------------------------------------------------------
 compTypes :: Type -> Type -> Bool
@@ -115,7 +120,7 @@ checkExpr (ERel line expr1 _ expr2) = do
     aux_check t1 t2
       | not (compTypes t1 t2) = throwError ("Comparison of different type values at " ++ showLine line)
       | compTypes t1 (Int BNFC'NoPosition) || compTypes t1 (Str BNFC'NoPosition) = return (Bool BNFC'NoPosition)
-      | otherwise = throwError ("Type " ++ show t1 ++ " is incomparable, at " ++ showLine line)
+      | otherwise = throwError ("Type " ++ showType t1 ++ " is incomparable, at " ++ showLine line)
 
 checkExpr (EAnd line expr1 expr2) = do
   t1 <- checkExpr expr1
